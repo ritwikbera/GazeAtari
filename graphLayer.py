@@ -81,23 +81,27 @@ class GCU(Module):
         
         zero = torch.Tensor(X.shape).fill_(0)
         new = torch.cat((zero, X), dim=2)
+
         extend = torch.matmul(new, self.iden)
 
         W = torch.reshape(self.W, (self.d*self.no_of_vert,))
-        q = extend - W[None, None, :]
         variance = torch.reshape(self.variance, (self.d*self.no_of_vert,))
+
+        q = extend - W[None, None, :]
         
-        q = (q/variance[None, None, :])**2
+        q1 = (q/variance[None, None, :])
+        q = q1**2
         q = torch.reshape(q, (self.batch, self.ht*self.wdth, self.d, self.no_of_vert))
         q = torch.sum(q, dim=2)
         q = torch.reshape(q, (self.batch, self.ht*self.wdth, self.no_of_vert))
-
-        Q -= torch.min(q, 2)[0][:, :, None]
+        Q = q
+        
+        Q -= torch.min(Q, 2)[0][:, :, None]
         Q = torch.exp(-Q*0.5)
         norm = torch.sum(Q, dim=2)
         Q = torch.div(Q, norm[:, :, None])
 
-        z = torch.reshape(q1, (self.batch,  self.d , self.ht*self.wdth , self.no_of_vert))
+        z = torch.reshape(q1, (self.batch, self.d, self.ht*self.wdth, self.no_of_vert))
         z = torch.mul(z,Q)
         z = torch.sum(z, dim=2)
         z = torch.add(z, 10e-8)/torch.add(torch.sum(Q,dim=1), 10e-8)
@@ -128,8 +132,4 @@ class GCU(Module):
 
 
 
-
-
-
-
-        
+if __name__=='__main__':
