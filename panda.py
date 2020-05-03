@@ -48,8 +48,9 @@ assert os.path.isdir(img_folder) and os.path.isdir(out_folder)
 i = 0
 with open(filename, 'r') as read_obj:
 	csv_reader = DictReader(read_obj)
-	header = next(csv_reader)
-	if header != None:
+	# header = next(csv_reader)
+	# if header != None:
+	if True:   # replace with commented block if using just reader instead of DictReader
 		for row in csv_reader:
 			try:
 				row['gaze_positions'] = row[None] + [row['gaze_positions']]
@@ -67,9 +68,11 @@ with open(filename, 'r') as read_obj:
 
 			gazemap = np.zeros_like(frame)[:,:,0]
 			assert gazemap.shape == frame.shape[:-1]
+			
+			print(len(row['gaze_positions']))
 
-			for coord in row['gaze_positions']:
-				x,y = coord.strip().split('.')
+			for ind in range(0,len(row['gaze_positions']),2):
+				x,y = float(row['gaze_positions'][ind]), float(row['gaze_positions'][ind+1])
 				x,y = np.clip(int(x),0,gazemap.shape[0]-1), np.clip(int(y),0,gazemap.shape[1]-1)
 				gazemap[x,y] = 255
 
@@ -90,7 +93,10 @@ with open(filename, 'r') as read_obj:
 			# plt.imshow(gazemap)
 			# plt.imshow(frame)
 			
-			# break
+			# if i == 1:
+			# 	break
+
+# after all frames, goto viz folder and run ffmpeg -i img_%05d.png video.mp4
 
 # plt.show()
 
