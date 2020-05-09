@@ -4,11 +4,13 @@ import os, glob, fnmatch
 from collections import OrderedDict
 from pprint import pprint 
 import numpy as np 
-from skimage import data, io
+# from skimage import data, io
 import matplotlib.pyplot as plt
 from PIL import Image 
 import math
 from scipy.ndimage import gaussian_filter
+import scipy.misc as sm 
+import torch
 
 def get_sigma(img):
 	Vs = 1*math.pi/180
@@ -53,18 +55,30 @@ def blend_(file1, file2, alpha=0.5, w2r=False):
 
 	return Image.blend(im1, im2, alpha=alpha)
 
-files = glob.glob('dataset/alien/*.txt')
+def stack_frames(index, img_folder):
+	# TODO: keep a running stack to avoid repeated fetching of frames.
+	stack_size = 4
+	files = glob.glob(img_folder+'/*.png')
+	files = [files[0]]*(stack_size-1) + files
+	tensors = list(map(lambda x: torch.Tensor(np.asarray(Image.open(x))), files[i:i+4]))
+	return torch.cat((tensors), -1)
+
+game = 'alien'
+files = glob.glob('dataset/'+game+'/*.txt')
 episode = 0
+
 filename = files[episode]
-img_folder = 'dataset/alien/extracted/'+filename.split('/')[-1][:-4]
-out_folder = 'dataset/alien/gaze/'+filename.split('/')[-1][:-4]
+
+img_folder = 'dataset/'+game+'/extracted/'+filename.split('/')[-1][:-4]
+
+out_folder = 'dataset/'+game+'/gaze/'+filename.split('/')[-1][:-4]
 os.makedirs(out_folder, exist_ok=True)
-viz_folder = 'dataset/alien/viz/'+filename.split('/')[-1][:-4]
+
+viz_folder = 'dataset/'+game+'/viz/'+filename.split('/')[-1][:-4]
 os.makedirs(viz_folder, exist_ok=True)
 
-print(filename)
-print(img_folder)
-print(out_folder)
+data_folder = 'dataset/'+game+'/data/'+filename.split('/')[-1][:-4]
+os.makedirs(data_folder, exist_ok=True)
 
 cmap = plt.get_cmap('jet')
 
@@ -88,48 +102,55 @@ with open(filename, 'r') as read_obj:
 			frame_file = img_folder+'/'+row['frame_id']+'.png'
 			out_file = out_folder+'/'+row['frame_id']+'.png'
 			viz_file = viz_folder+'/img_{:05}.png'.format(i)
-
+			data_file = data_folder+'/'+row['frame_id']+'.png'
 
 			assert os.path.isfile(frame_file)
-			frame = io.imread(frame_file)
-			h_sig, w_sig = get_sigma(frame)
 
+			frame = np.asarray(Image.open(frame_file))
 			# frame = crop_image(frame)
 
 			gazemap = np.zeros_like(frame)[:,:,0]
 			heatmap = gazemap
 			assert gazemap.shape == frame.shape[:-1]
 			
-			# print(len(row['gaze_positions']))
+			h_sig, w_sig = get_sigma(frame)
 
+			x,y =0,0
 			for ind in range(0,len(row['gaze_positions']),2):
 				x,y = float(row['gaze_positions'][ind]), float(row['gaze_positions'][ind+1])
 				x,y = np.clip(int(x),0,gazemap.shape[0]-1), np.clip(int(y),0,gazemap.shape[1]-1)
 				gazemap[x,y] = 255.0
 
-			io.imsave(viz_file, gazemap)
 
 			h_sig, w_sig = 3, 2
 			heatmap = gaussian_filter(gazemap, sigma = (h_sig,w_sig), mode='constant')
-			io.imsave(out_file, heatmap)
-
-			# print(np.amax(heatmap), np.amin(heatmap))
-
+			heatmap = (heatmap*(1.0/np.amax(heatmap))) # rescaling max to 1.0
 			heatmap = cmap(heatmap)
 			heatmap = np.delete(heatmap, 3, 2) # delete alpha channel
 
+			data = {'frame_stack': stack_frames(i, img_folder), 'gaze_point': (x,y)}
+			torch.save(data, data_file)
+
+			plt.imsave(viz_file, gazemap)
+			plt.imsave(out_file, heatmap)
 		
-			blend = blend_(frame_file, viz_file, alpha=0.6, w2r=True)
+			blend = blend_(frame_file, viz_file, alpha=0.3, w2r=True)
 			blend.save(viz_file)
 			blend = blend_(viz_file, out_file)
 			blend.save(viz_file)
 			i = i + 1
+
+			print('Done with frame {}'.format(i))
 			
 			# blend.show()
-			# plt.imshow(gazemap)
-			# plt.imshow(frame)
-			# plt.imshow(heatmap)
-			
+			# fig = plt.figure()
+			# ax1 = fig.add_subplot(2,2,1)
+			# ax1.imshow(frame)
+			# ax2 = fig.add_subplot(2,2,2)
+			# ax2.imshow(heatmap)
+			# ax3 = fig.add_subplot(2,2,3)
+			# ax3.imshow(gazemap)
+
 			# if i == 1:
 			# 	break
 
