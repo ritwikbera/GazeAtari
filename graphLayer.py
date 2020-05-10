@@ -130,8 +130,3 @@ class GCU(Module):
 
         return out
 
-if __name__=='__main__':
-	gcu = GCU()
-	img = torch.randn(16,16,3)
-	out = gcu(img).permute(0,2,3,1)
-	print(out.size())

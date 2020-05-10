@@ -27,7 +27,7 @@ class MyIterableDataset(IterableDataset):
 			yield x
 
 	def process_data_(self, data):
-		return data 
+		return data
 
 	def get_stream(self, data_list):  
 		# return chain.from_iterable(map(self.process_data, cycle(data_list))) # if recurrence order has to be maintained
@@ -72,12 +72,17 @@ if __name__=='__main__':
 	print(next(a))
 
 	game = 'alien'
-	path = 'dataset/'+game+'/extracted/*'
-	gaze_data = [glob(trial+'/*') for trial in glob(path)[:]]
+	path = 'dataset/'+game+'/data/*'
+	gaze_data = [glob(trial+'/*.pth') for trial in glob(path)[:]]
 
 	data_list = gaze_data
 
 	datasets = MyIterableDataset(data_list, batch_size=4).split_datasets(data_list, batch_size=4, max_workers=1)
 	loader = iter(MultiStreamDataLoader(datasets))
-	for i in range(4):
-		print(next(loader))
+	for i in range(1):
+		batch = next(loader)
+		frames = torch.cat(list(map(lambda x: torch.load(x)['frame_stack'], batch)),0)
+		outputs = torch.cat(list(map(lambda x: torch.load(x)['gaze_point'], batch)),0)
+		print(frames.size())
+		print(outputs.size())
+		# print(batch)

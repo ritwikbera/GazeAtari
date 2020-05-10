@@ -61,7 +61,7 @@ def stack_frames(index, img_folder):
 	files = glob.glob(img_folder+'/*.png')
 	files = [files[0]]*(stack_size-1) + files
 	tensors = list(map(lambda x: torch.Tensor(np.asarray(Image.open(x))), files[i:i+4]))
-	return torch.cat((tensors), -1)
+	return torch.cat((tensors), -1).unsqueeze(0)
 
 game = 'alien'
 files = glob.glob('dataset/'+game+'/*.txt')
@@ -102,12 +102,15 @@ with open(filename, 'r') as read_obj:
 			frame_file = img_folder+'/'+row['frame_id']+'.png'
 			out_file = out_folder+'/'+row['frame_id']+'.png'
 			viz_file = viz_folder+'/img_{:05}.png'.format(i)
-			data_file = data_folder+'/'+row['frame_id']+'.png'
+			data_file = data_folder+'/'+row['frame_id']+'.pth'
 
 			assert os.path.isfile(frame_file)
 
 			frame = np.asarray(Image.open(frame_file))
-			# frame = crop_image(frame)
+			frame = crop_image(frame)
+			# TODO: downpooling and processing to get standard 84x84 shape for ALE
+			print(frame.shape)
+			plt.imsave(frame_file, frame)
 
 			gazemap = np.zeros_like(frame)[:,:,0]
 			heatmap = gazemap
@@ -128,7 +131,7 @@ with open(filename, 'r') as read_obj:
 			heatmap = cmap(heatmap)
 			heatmap = np.delete(heatmap, 3, 2) # delete alpha channel
 
-			data = {'frame_stack': stack_frames(i, img_folder), 'gaze_point': (x,y)}
+			data = {'frame_stack': stack_frames(i, img_folder), 'gaze_point': torch.Tensor([[x,y]])}
 			torch.save(data, data_file)
 
 			plt.imsave(viz_file, gazemap)
@@ -151,8 +154,8 @@ with open(filename, 'r') as read_obj:
 			# ax3 = fig.add_subplot(2,2,3)
 			# ax3.imshow(gazemap)
 
-			# if i == 1:
-			# 	break
+			if i == 100:
+				break
 
 # after all frames, goto viz folder and run ffmpeg -i img_%05d.png video.mp4
 
