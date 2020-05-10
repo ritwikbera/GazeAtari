@@ -37,6 +37,7 @@ class GCU(Module):
             self.iden = torch.cat((self.iden,self.iden), dim=1)
         
         self.count = 0
+        self.initialized = False
         
 
     def init_param(self,x):
@@ -69,7 +70,11 @@ class GCU(Module):
 
         variance = Parameter(torch.Tensor((sig2 - sig1 + 1e-6)))
 
-        return W, variance
+        # print(W, variance)
+
+        self.W, self.variance = W, variance
+
+        # return W, variance
 
     def GraphProject_optim(self, X):
 
@@ -83,6 +88,7 @@ class GCU(Module):
         new = torch.cat((zero, X), dim=2)
 
         extend = torch.matmul(new, self.iden)
+        # print(extend.size())
 
         W = torch.reshape(self.W, (self.d*self.no_of_vert,))
         variance = torch.reshape(self.variance, (self.d*self.no_of_vert,))
@@ -102,31 +108,52 @@ class GCU(Module):
         Q = torch.div(Q, norm[:, :, None])
 
         z = torch.reshape(q1, (self.batch, self.d, self.ht*self.wdth, self.no_of_vert))
+        Q = Q[:,None,:,:].repeat(1,self.d,1,1)
+
+        # Q = Q.refine_names('B','C','HW', 'V')
+        # z = z.refine_names('B','C','HW', 'V')
+        # print(Q.names)
+
         z = torch.mul(z,Q)
+        # z = torch.sum(z, dim='HW')
+        # z = torch.add(z, 10e-8)/torch.add(torch.sum(Q,dim='HW'), 10e-8)
+
         z = torch.sum(z, dim=2)
-        z = torch.add(z, 10e-8)/torch.add(torch.sum(Q,dim=1), 10e-8)
+        z = torch.add(z, 10e-8)/torch.add(torch.sum(Q,dim=2), 10e-8)
+
+        # norm = torch.sum(z**2, dim='C')
 
         norm = torch.sum(z**2, dim=1)
-        Z = torch.div(Z,norm)
+        Z = torch.div(z,norm[:,None,:])
         Adj = torch.matmul(torch.transpose(Z,1,2), Z)
 
         return (Q, Z, Adj)
 
 
-    def GraphReproject(self, Z_o,Q):
-        X_new = torch.matmul(Z_o,Q)
+    def GraphReproject(self, Z_o, Q):
+        Q = torch.sum(Q, dim=1)
+        # print(Z_o.size(), Q.size())
+
+        X_new = torch.matmul(Q, Z_o)
         return torch.reshape(X_new, (self.batch, self.outfeatures, self.ht, self.wdth))
 
     def forward(self, X):
+        if not self.initialized:
+            self.init_param(X[0]) # one input from batch
+            self.initialized = True
+
         X = torch.reshape(X,(self.batch, self.ht, self.wdth, self.d)).float()
     
         Q, Z, Adj = self.GraphProject_optim(X)
 
-        out = torch.matmul(torch.transpose(Z,1,2), self.weight)
+        # print(Q.size(), Z.size(), Adj.size())
+        # print(self.weight.size())
+
+        out = torch.matmul(torch.transpose(Z,1,2), self.weight[None,:,:])
         out = torch.matmul(Adj, out)
         Z_o = F.relu(out)
 
-        out = self.GraphReproject(Q, Z_o)
+        out = self.GraphReproject(Z_o, Q)
 
         return out
 

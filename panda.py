@@ -107,10 +107,10 @@ with open(filename, 'r') as read_obj:
 			assert os.path.isfile(frame_file)
 
 			frame = np.asarray(Image.open(frame_file))
-			frame = crop_image(frame)
+			# frame = crop_image(frame)
 			# TODO: downpooling and processing to get standard 84x84 shape for ALE
-			print(frame.shape)
-			plt.imsave(frame_file, frame)
+			# print(frame.shape)
+			# plt.imsave(frame_file, frame)
 
 			gazemap = np.zeros_like(frame)[:,:,0]
 			heatmap = gazemap
