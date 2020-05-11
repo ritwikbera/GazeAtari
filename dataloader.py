@@ -77,7 +77,7 @@ if __name__=='__main__':
 
 	data_list = gaze_data
 
-	datasets = MyIterableDataset(data_list, batch_size=4).split_datasets(data_list, batch_size=4, max_workers=1)
+	datasets = MyIterableDataset.split_datasets(data_list, batch_size=4, max_workers=1)
 	loader = iter(MultiStreamDataLoader(datasets))
 	for i in range(1):
 		batch = next(loader)
