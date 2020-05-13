@@ -1,3 +1,4 @@
 dataset/
 bin.py
 mol.py
+*.pth

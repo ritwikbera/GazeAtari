@@ -10,6 +10,7 @@ import json
 from ignite.engine import Events, Engine
 from ignite.metrics import Loss, RunningAverage
 from ignite.utils import setup_logger
+from ignite.handlers import ModelCheckpoint
 
 from tqdm import tqdm
 from model import *
@@ -64,6 +65,15 @@ def run(config):
     trainer.logger = setup_logger("trainer")
 
     RunningAverage(output_transform=lambda x: x).attach(trainer, 'loss')
+    training_saver = ModelCheckpoint("checkpoint",
+                                 filename_prefix="checkpoint",
+                                 n_saved=1,
+                                 atomic=True,
+                                 save_as_state_dict=True,
+                                 create_dir=True)
+
+    trainer.add_event_handler(Events.EPOCH_COMPLETED, training_saver, 
+                          {'model': model})
 
     @trainer.on(Events.ITERATION_COMPLETED)
     def tb_log(engine):
@@ -78,5 +88,5 @@ def run(config):
     trainer.run(train_loader, max_epochs=config['epochs'], epoch_length=100)
 
 if __name__ == "__main__":
-    config = {'game':'alien', 'batch_size':4, 'epochs':1, 'lr':5e-3, 'log_interval':100, 'n_gpu':2}
+    config = {'game':'alien', 'batch_size':4, 'epochs':40, 'lr':5e-3, 'log_interval':100, 'n_gpu':2}
     run(config)

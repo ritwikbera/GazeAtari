@@ -1,7 +1,7 @@
 import pandas as pd 
 from csv import reader, DictReader
 import os, glob, fnmatch
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from pprint import pprint 
 import numpy as np 
 # from skimage import data, io
@@ -11,6 +11,16 @@ import math
 from scipy.ndimage import gaussian_filter
 import scipy.misc as sm 
 import torch
+from functools import wraps
+import inspect
+
+def get_default_args(func):
+    signature = inspect.signature(func)
+    return {
+        k: v.default
+        for k, v in signature.parameters.items()
+        if v.default is not inspect.Parameter.empty
+    }
 
 def get_sigma(img):
 	Vs = 1*math.pi/180
@@ -55,13 +65,42 @@ def blend_(file1, file2, alpha=0.5, w2r=False):
 
 	return Image.blend(im1, im2, alpha=alpha)
 
-def stack_frames(index, img_folder):
+def frame_fetch(func):
+	values = {'files':None, 'stack': None}
+
+	@wraps(func)
+	def inner(*args, **kwargs):
+		kwargs.update(get_default_args(func))
+		if values['files'] is None:
+			values['stack'], values['files'] = func(*args, **kwargs)
+		else:
+			kwargs['files'] = values['files']
+
+			# stack memoization (only useful when interval is 1. i.e. every frame is used)
+			if kwargs['interval'] == 1:
+				file = values['files'][index]
+				values['stack'] = torch.cat((values['stack'][1:],\
+					torch.Tensor(np.asarray(Image.open(file))).unsqueeze(0)), -1)
+			else:
+				values['stack'], _ = func(*args, **kwargs) # enable if not using stack memoization
+
+		return values['stack'], values['files']
+
+	return inner
+
+@frame_fetch
+def stack_frames(index, img_folder, stack_size=4, interval=5, files=None):
+	'''
+	interval : every interval^th frame included in stack
+	stack_size : number of frames in stack
+	'''
 	# TODO: keep a running stack to avoid repeated fetching of frames.
-	stack_size = 4
-	files = glob.glob(img_folder+'/*.png')
-	files = [files[0]]*(stack_size-1) + files
-	tensors = list(map(lambda x: torch.Tensor(np.asarray(Image.open(x))), files[i:i+4]))
-	return torch.cat((tensors), -1).unsqueeze(0)
+
+	files = files or glob.glob(img_folder+'/*.png')
+	files = [files[0]]*(stack_size*interval-1) + files
+	tensors = list(map(lambda x: torch.Tensor(np.asarray(Image.open(x))), \
+		files[i:i+stack_size*interval:interval]))
+	return torch.cat((tensors), -1).unsqueeze(0), files
 
 game = 'alien'
 files = glob.glob('dataset/'+game+'/*.txt')
@@ -109,7 +148,8 @@ with open(filename, 'r') as read_obj:
 			frame = np.asarray(Image.open(frame_file))
 			# frame = crop_image(frame)
 			# TODO: downpooling and processing to get standard 84x84 shape for ALE
-			# print(frame.shape)
+			# frame = frame.resize((84,84))
+			print(frame.shape)
 			# plt.imsave(frame_file, frame)
 
 			gazemap = np.zeros_like(frame)[:,:,0]
@@ -131,7 +171,7 @@ with open(filename, 'r') as read_obj:
 			heatmap = cmap(heatmap)
 			heatmap = np.delete(heatmap, 3, 2) # delete alpha channel
 
-			data = {'frame_stack': stack_frames(i, img_folder), 'gaze_point': torch.Tensor([[x,y]])}
+			data = {'frame_stack': stack_frames(i, img_folder)[0], 'gaze_point': torch.Tensor([[x,y]])}
 			torch.save(data, data_file)
 
 			plt.imsave(viz_file, gazemap)
@@ -154,8 +194,8 @@ with open(filename, 'r') as read_obj:
 			# ax3 = fig.add_subplot(2,2,3)
 			# ax3.imshow(gazemap)
 
-			if i == 100:
-				break
+			# if i == 100:
+			# 	break
 
 # after all frames, goto viz folder and run ffmpeg -i img_%05d.png video.mp4
 
