@@ -13,7 +13,7 @@ class GazePred(nn.Module):
         # self.conv1 = nn.Conv2d(in_channels=sample_batch.size(1), out_channels=16, kernel_size=8, stride=4, padding=2)
         # self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=4, stride=2, padding=1)
         
-        bs,ch,h,w = sample_batch.size()
+        bs,h,w,ch = sample_batch.size()
         self.gc3 = GCU(V=8, h=h, w=w, d=ch, batch=bs)
 
         gcu_out_ch = 1
@@ -31,13 +31,16 @@ class GazePred(nn.Module):
 
         y = self.gc3(x)
         y = self.conv(y)
+        y = y.rename('B','C','H','W')
         # FC layers fully replaced by 2 fully conv layers
-        y = self.conv_fc2(self.conv_fc1(y.permute(0,2,1,3)).permute(0,3,1,2))
+        y = self.conv_fc1(y.align_to('B','H','C','W').rename(None)) 
+        y = y.rename('B','H','C','W')
+        y = self.conv_fc2(y.align_to('B','W','H','C').rename(None))
         y = y.view(y.size()[0],-1)
         return y
 
 if __name__=='__main__':
-    img = torch.randn(2,3,16,16)
+    img = torch.randn(2,16,16,3)
     model = GazePred()
     out = model(img)
     print(out.size())

@@ -94,7 +94,7 @@ class GCU(Module):
         variance = torch.reshape(self.variance, (self.d*self.no_of_vert,))
 
         q = extend - W[None, None, :]
-        
+
         q1 = (q/variance[None, None, :])
         q = q1**2
         q = torch.reshape(q, (self.batch, self.ht*self.wdth, self.d, self.no_of_vert))
@@ -102,40 +102,40 @@ class GCU(Module):
         q = torch.reshape(q, (self.batch, self.ht*self.wdth, self.no_of_vert))
         Q = q
         
-        Q -= torch.min(Q, 2)[0][:, :, None]
+        Q = Q.refine_names('B','HW','V')
+        Q -= torch.min(Q, 2)[0].align_as(Q)
         Q = torch.exp(-Q*0.5)
-        norm = torch.sum(Q, dim=2)
-        Q = torch.div(Q, norm[:, :, None])
+        norm = torch.sum(Q, dim='V')
+        Q = torch.div(Q, norm.align_as(Q))
 
         z = torch.reshape(q1, (self.batch, self.d, self.ht*self.wdth, self.no_of_vert))
-        Q = Q[:,None,:,:].repeat(1,self.d,1,1)
 
-        # Q = Q.refine_names('B','C','HW', 'V')
-        # z = z.refine_names('B','C','HW', 'V')
-        # print(Q.names)
+        z = z.refine_names('B','d','HW', 'V')
+        Q = Q.align_as(z)
 
         z = torch.mul(z,Q)
-        # z = torch.sum(z, dim='HW')
-        # z = torch.add(z, 10e-8)/torch.add(torch.sum(Q,dim='HW'), 10e-8)
 
-        z = torch.sum(z, dim=2)
-        z = torch.add(z, 10e-8)/torch.add(torch.sum(Q,dim=2), 10e-8)
+        z = torch.sum(z, dim='HW')
+        z = torch.add(z, 10e-8)/torch.add(torch.sum(Q,dim='HW'), 10e-8)
 
-        # norm = torch.sum(z**2, dim='C')
+        norm = torch.sum(z**2, dim='d')
+        Z = torch.div(z,norm.align_as(z))
+        Z = Z.rename(None)
 
-        norm = torch.sum(z**2, dim=1)
-        Z = torch.div(z,norm[:,None,:])
         Adj = torch.matmul(torch.transpose(Z,1,2), Z)
+
 
         return (Q, Z, Adj)
 
 
     def GraphReproject(self, Z_o, Q):
-        Q = torch.sum(Q, dim=1)
-        # print(Z_o.size(), Q.size())
+        Q = torch.sum(Q, dim='d')
+        assert Q.names == ('B','HW','V') and Z_o.names == ('B','V','d_out')
 
         X_new = torch.matmul(Q, Z_o)
-        return torch.reshape(X_new, (self.batch, self.outfeatures, self.ht, self.wdth))
+        assert X_new.names == ('B','HW','d_out')
+
+        return X_new.unflatten('HW', (('H',self.ht),('W',self.wdth))).rename(None)
 
     def forward(self, X):
         if not self.initialized:
@@ -146,14 +146,12 @@ class GCU(Module):
     
         Q, Z, Adj = self.GraphProject_optim(X)
 
-        # print(Q.size(), Z.size(), Adj.size())
-        # print(self.weight.size())
-
+        # self.weight = self.weight.refine_names('d','d_out').align_as
         out = torch.matmul(torch.transpose(Z,1,2), self.weight[None,:,:])
         out = torch.matmul(Adj, out)
         Z_o = F.relu(out)
-
-        out = self.GraphReproject(Z_o, Q)
+        Z_o = Z_o.refine_names('B','V','d_out')
+        out = self.GraphReproject(Z_o, Q).permute(0,3,1,2) # permute channel dimension
 
         return out
 

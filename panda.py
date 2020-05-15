@@ -71,40 +71,41 @@ def frame_fetch(func):
 	@wraps(func)
 	def inner(*args, **kwargs):
 		kwargs.update(get_default_args(func))
+		index = args[0]
 		if values['files'] is None:
 			values['stack'], values['files'] = func(*args, **kwargs)
 		else:
 			kwargs['files'] = values['files']
 
-			# stack memoization (only useful when interval is 1. i.e. every frame is used)
-			if kwargs['interval'] == 1:
+			# stack memoization (only useful when dilation is 1. i.e. every frame is used)
+			if kwargs['dilation'] == kwargs['sampling_interval']:
 				file = values['files'][index]
-				values['stack'] = torch.cat((values['stack'][1:],\
+				values['stack'] = torch.cat((values['stack'][:,:,:,3:],\
 					torch.Tensor(np.asarray(Image.open(file))).unsqueeze(0)), -1)
 			else:
 				values['stack'], _ = func(*args, **kwargs) # enable if not using stack memoization
-
 		return values['stack'], values['files']
 
 	return inner
 
 @frame_fetch
-def stack_frames(index, img_folder, stack_size=4, interval=5, files=None):
+def stack_frames(index, img_folder, sampling_interval, stack_size=4, dilation=5, files=None):
 	'''
-	interval : every interval^th frame included in stack
+	dilation : every dilation^th frame included in stacdilationk
 	stack_size : number of frames in stack
 	'''
 	# TODO: keep a running stack to avoid repeated fetching of frames.
 
 	files = files or glob.glob(img_folder+'/*.png')
-	files = [files[0]]*(stack_size*interval-1) + files
+	files = [files[0]]*(stack_size*dilation-1) + files
 	tensors = list(map(lambda x: torch.Tensor(np.asarray(Image.open(x))), \
-		files[i:i+stack_size*interval:interval]))
+		files[i:i+stack_size*dilation:dilation]))
 	return torch.cat((tensors), -1).unsqueeze(0), files
 
 game = 'alien'
 files = glob.glob('dataset/'+game+'/*.txt')
 episode = 0
+sampling_interval = 5 # every 5th frame sampled (with stacked history)
 
 filename = files[episode]
 
@@ -129,7 +130,9 @@ with open(filename, 'r') as read_obj:
 	# header = next(csv_reader)
 	# if header != None:
 	if True:   # replace with commented block if using just reader instead of DictReader
-		for row in csv_reader:
+		for i,row in enumerate(csv_reader):
+			if i%sampling_interval > 0:
+				continue
 			try:
 				row['gaze_positions'] = row[None] + [row['gaze_positions']]
 				del row[None]
@@ -171,7 +174,8 @@ with open(filename, 'r') as read_obj:
 			heatmap = cmap(heatmap)
 			heatmap = np.delete(heatmap, 3, 2) # delete alpha channel
 
-			data = {'frame_stack': stack_frames(i, img_folder)[0], 'gaze_point': torch.Tensor([[x,y]])}
+			data = {'frame_stack': stack_frames(i, img_folder, sampling_interval=sampling_interval)[0], \
+			 'gaze_point': torch.Tensor([[x,y]])}
 			torch.save(data, data_file)
 
 			plt.imsave(viz_file, gazemap)
@@ -181,7 +185,6 @@ with open(filename, 'r') as read_obj:
 			blend.save(viz_file)
 			blend = blend_(viz_file, out_file)
 			blend.save(viz_file)
-			i = i + 1
 
 			print('Done with frame {}'.format(i))
 			
