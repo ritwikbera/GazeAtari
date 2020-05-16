@@ -42,7 +42,7 @@ def get_loader(config):
     
     # if overfitting on a batch
     if config['mode'] == 'overfit':
-        path = 'dataset/'+config['game']+'/sandbox/*'
+        path = 'dataset/'+config['game']+'/overfit/*'
 
     if config['mode'] == 'eval':
         config['batch_size'] = 1
@@ -95,4 +95,4 @@ class ModelPrepper:
 
     @property
     def out(self):
-        return self.model
+        return self.model, self.device

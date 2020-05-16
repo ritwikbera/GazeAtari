@@ -1,0 +1,10 @@
+{"game":"alien", 
+"batch_size":4, 
+"epochs":40, 
+"lr":5e-3, 
+"optimizer":"Rprop",
+"log_interval":100, 
+"n_gpu":2,
+"mode":"overfit",   
+"resume":0,
+"ckpt_path":"trial1.pth"}

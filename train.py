@@ -28,14 +28,17 @@ def run(config):
     writer = create_summary_writer(config, model, train_loader)
 
 
-    model = ModelPrepper(model, config).out
+    model, device = ModelPrepper(model, config).out
     if config['optimizer']=='Adam':
         optimizer = Adam(model.parameters(), lr=config['lr'])
     else:
         optimizer = Rprop(model.parameters())
 
-    if config['mode'] == 'eval':
+    if config['mode'] == 'eval' or config['resume'] == 1:
         model.load_state_dict(torch.load(config['ckpt_path']))
+
+    desc = "ITERATION - loss: {:.2f}"
+    pbar = tqdm(initial=0, leave=False, total=size, desc=desc.format(0))
 
     def process_batch(engine, batch):
         frames, outputs = depickle(batch)
@@ -44,13 +47,16 @@ def run(config):
             model.train()
             preds = model(frames)
             optimizer.zero_grad()
-            loss = loss_fn(outputs, preds)*100
+            loss = loss_fn(outputs.to(device), preds)*100
             loss.backward()
             optimizer.step()
+            # print(model.gcu.W.grad)
+            # print(model.gcu.weight.grad)
+            # print(model.gcu.variance.grad)
         elif config['mode'] == 'eval':
             model.eval()
             preds = model(frames)
-            loss = loss_fn(outputs, preds)*100
+            loss = loss_fn(outputs.to(device), preds)*100
         else:
             raise NotImplementedError
 
@@ -58,7 +64,7 @@ def run(config):
         # print(pred.size())
 
         # print(preds, outputs)
-        print(loss.item())
+        # print(loss.item())
 
         return loss.item()
 
@@ -79,6 +85,9 @@ def run(config):
 
     @trainer.on(Events.ITERATION_COMPLETED)
     def tb_log(engine):
+        pbar.desc = desc.format(engine.state.output)
+        pbar.update(config['batch_size'])
+
         if config['mode'] in ['train','overfit']:
             writer.add_scalar('training/avg_loss', engine.state.metrics['loss'] ,engine.state.iteration)
         else:
@@ -86,19 +95,14 @@ def run(config):
 
     @trainer.on(Events.EPOCH_COMPLETED)
     def print_trainer_logs(engine):
+        pbar.refresh()
         avg_loss = engine.state.metrics['loss']
-        print('Trainer Results - Epoch {} - Avg loss: {:.2f}'.format(engine.state.epoch, avg_loss))
-    
-    trainer.run(train_loader, max_epochs=config['epochs'], epoch_length=size/config['batch_size'])
+        tqdm.write('Trainer Results - Epoch {} - Avg loss: {:.2f}'.format(engine.state.epoch, avg_loss))
+        pbar.n = pbar.last_print_n = 0
 
+    trainer.run(train_loader, max_epochs=config['epochs'], epoch_length=size/config['batch_size'])
+    pbar.close()
+    
 if __name__ == "__main__":
-    config = {'game':'alien', 
-              'batch_size':4, 
-              'epochs':40, 
-              'lr':5e-3, 
-              'optimizer':'Adam',
-              'log_interval':100, 
-              'n_gpu':2,
-              'mode':'overfit',   
-              'ckpt_path':'trial1.pth'} # 'train' or 'eval' or 'overfit'
+    config = json.load(open('config.txt'))
     run(config)

@@ -27,8 +27,23 @@ class GCU(Module):
         self.outfeatures = outfeatures
         self.batch = batch
         self.W = Parameter(torch.Tensor(d,V))
+        self.W.requires_grad = True
+        self.W.retain_grad()
         self.variance = Parameter(torch.Tensor(d,V))
-        self.weight = Parameter(torch.Tensor(d, outfeatures))
+        self.variance.requires_grad = True
+        self.variance.retain_grad()
+        self.weight = Parameter(torch.ones(d, outfeatures))
+        self.weight.requires_grad = True
+        self.device = 'cpu'
+
+        # torch.nn.init.xavier_uniform_(self.weight)
+        torch.nn.init.xavier_uniform_(self.W)
+        torch.nn.init.xavier_uniform_(self.variance)
+        # print(self.weight)
+
+        # self.weight.register_hook(self.save_grad('weight_g'))
+        # self.W.register_hook(self.save_grad('W'))
+        # self.variance.register_hook(self.save_grad('variance'))
 
         self.iden = torch.eye(self.d)
         self.iden = torch.cat((self.iden, self.iden))
@@ -38,7 +53,14 @@ class GCU(Module):
         
         self.count = 0
         self.initialized = False
-        
+        self.grads = {}
+
+    def save_grad(self, name):
+        def hook(grad):
+            self.grads[name] = grad
+            assert not (grad == torch.zeros(grad.size())).all()
+            # print(name, grad.size(), (grad == torch.zeros(grad.size())).all())
+        return hook
 
     def init_param(self,x):
 
@@ -72,28 +94,29 @@ class GCU(Module):
 
         # print(W, variance)
 
-        self.W, self.variance = W, variance
-
-        # return W, variance
+        # self.W, self.variance = W, variance
 
     def GraphProject_optim(self, X):
 
-        Adj = torch.Tensor(self.batch, self.no_of_vert, self.no_of_vert)
-        Z = torch.Tensor(self.batch, self.d, self.no_of_vert)
-        Q = torch.Tensor(self.batch, self.ht*self.wdth, self.no_of_vert)
+        Adj = torch.Tensor(self.batch, self.no_of_vert, self.no_of_vert).to(self.device)
+        Z = torch.Tensor(self.batch, self.d, self.no_of_vert).to(self.device)
+        Q = torch.Tensor(self.batch, self.ht*self.wdth, self.no_of_vert).to(self.device)
 
         X = torch.reshape(X,(self.batch, self.ht*self.wdth, self.d))
         
-        zero = torch.Tensor(X.shape).fill_(0)
+        zero = torch.Tensor(X.shape).fill_(0).to(self.device)
         new = torch.cat((zero, X), dim=2)
 
-        extend = torch.matmul(new, self.iden)
-        # print(extend.size())
+        extend = torch.matmul(new, self.iden.to(self.device))
 
         W = torch.reshape(self.W, (self.d*self.no_of_vert,))
         variance = torch.reshape(self.variance, (self.d*self.no_of_vert,))
 
+        # W.register_hook(self.save_grad('W'))
+        # variance.register_hook(self.save_grad('variance'))
+
         q = extend - W[None, None, :]
+
 
         q1 = (q/variance[None, None, :])
         q = q1**2
@@ -101,9 +124,14 @@ class GCU(Module):
         q = torch.sum(q, dim=2)
         q = torch.reshape(q, (self.batch, self.ht*self.wdth, self.no_of_vert))
         Q = q
+
+        # q.register_hook(self.save_grad('q'))
         
         Q = Q.refine_names('B','HW','V')
-        Q -= torch.min(Q, 2)[0].align_as(Q)
+        Q -= torch.min(Q, 'V')[0].align_as(Q) # backprop bottleneck point
+
+        # Q.register_hook(self.save_grad('Q'))
+
         Q = torch.exp(-Q*0.5)
         norm = torch.sum(Q, dim='V')
         Q = torch.div(Q, norm.align_as(Q))
@@ -118,11 +146,16 @@ class GCU(Module):
         z = torch.sum(z, dim='HW')
         z = torch.add(z, 10e-8)/torch.add(torch.sum(Q,dim='HW'), 10e-8)
 
+        # z.register_hook(self.save_grad('z'))
+
         norm = torch.sum(z**2, dim='d')
         Z = torch.div(z,norm.align_as(z))
         Z = Z.rename(None)
 
         Adj = torch.matmul(torch.transpose(Z,1,2), Z)
+
+        # Z.register_hook(self.save_grad('Z'))
+        # Adj.register_hook(self.save_grad('Adj'))
 
 
         return (Q, Z, Adj)
@@ -138,6 +171,9 @@ class GCU(Module):
         return X_new.unflatten('HW', (('H',self.ht),('W',self.wdth))).rename(None)
 
     def forward(self, X):
+        self.batch = X.size(0)
+        self.device = 'cpu' if X.get_device() == -1 else 'cuda:{}'.format(X.get_device())
+
         if not self.initialized:
             self.init_param(X[0]) # one input from batch
             self.initialized = True
@@ -146,11 +182,13 @@ class GCU(Module):
     
         Q, Z, Adj = self.GraphProject_optim(X)
 
-        # self.weight = self.weight.refine_names('d','d_out').align_as
         out = torch.matmul(torch.transpose(Z,1,2), self.weight[None,:,:])
         out = torch.matmul(Adj, out)
         Z_o = F.relu(out)
         Z_o = Z_o.refine_names('B','V','d_out')
+
+        # Z_o.register_hook(self.save_grad('Z_o'))
+
         out = self.GraphReproject(Z_o, Q).permute(0,3,1,2) # permute channel dimension
 
         return out

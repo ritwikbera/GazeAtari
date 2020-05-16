@@ -16,7 +16,7 @@ train_loader, size = get_loader(config)
 model = init_model(train_loader)
 writer = create_summary_writer(config, model, train_loader)
 
-cp_path = 'trial3.pth'
+cp_path = 'checkpoint/trial.pth'
 model.load_state_dict(torch.load(cp_path))
 model.eval()
 
@@ -26,6 +26,8 @@ def print_param(model):
 			print(param, param[1].numel())
 			writer.add_histogram(param[0], param[1].detach().squeeze().numpy(), bins='auto')
 # print(list(model.parameters()))
+
+print_param(model)
 
 for i, batch in enumerate(train_loader):
 	# if i%1000 > 0:
