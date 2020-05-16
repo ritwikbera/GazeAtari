@@ -2,7 +2,7 @@
 "batch_size":4, 
 "epochs":40, 
 "lr":5e-3, 
-"optimizer":"Rprop",
+"optimizer":"Adam",
 "log_interval":100, 
 "n_gpu":2,
 "mode":"overfit",   

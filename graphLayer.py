@@ -36,14 +36,14 @@ class GCU(Module):
         self.weight.requires_grad = True
         self.device = 'cpu'
 
-        # torch.nn.init.xavier_uniform_(self.weight)
+        torch.nn.init.xavier_uniform_(self.weight)
         torch.nn.init.xavier_uniform_(self.W)
         torch.nn.init.xavier_uniform_(self.variance)
         # print(self.weight)
 
-        # self.weight.register_hook(self.save_grad('weight_g'))
-        # self.W.register_hook(self.save_grad('W'))
-        # self.variance.register_hook(self.save_grad('variance'))
+        self.weight.register_hook(self.save_grad('weight_g'))
+        self.W.register_hook(self.save_grad('W'))
+        self.variance.register_hook(self.save_grad('variance'))
 
         self.iden = torch.eye(self.d)
         self.iden = torch.cat((self.iden, self.iden))
@@ -94,7 +94,8 @@ class GCU(Module):
 
         # print(W, variance)
 
-        # self.W, self.variance = W, variance
+        self.W.data = W.data
+        self.variance.data = variance.data
 
     def GraphProject_optim(self, X):
 

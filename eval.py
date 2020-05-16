@@ -4,10 +4,13 @@ from glob import glob
 import re
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
+from PIL import Image 
+import numpy as np 
 
 from dataloader import *
 from model import *
 from utils import *
+from data_utils import gazemap_to_heatmap, create_gazemap
 
 # batch size 1 for evaluation
 config = {'game':'alien', 'batch_size':1, 'mode':'overfit'}
@@ -29,14 +32,28 @@ def print_param(model):
 
 print_param(model)
 
+
+
 for i, batch in enumerate(train_loader):
 	# if i%1000 > 0:
 		# continue
-	if i > size:
+	if i > size: # need to include this for an interative dataloader
 		break
-	item, _ = depickle(batch)
-	print(model(item))
-	# writer.add_figure('predictions vs actuals', model(item))
+	item, outputs = depickle(batch)
+	preds = model(item)
+	h, w = 210, 160
+	outputs = list(outputs.detach().numpy()*[[h,w]]+[[h//2,w//2]])
+	preds = list(preds.detach().numpy()*[[h,w]]+[[h//2,w//2]])
+
+	for j, out in enumerate(outputs):
+		gazemap = np.zeros_like(item.detach().numpy()[0])[:,:,0]
+		img_1 = gazemap_to_heatmap(create_gazemap(gazemap, preds[j])[0])
+
+		gazemap = np.zeros_like(item.detach().numpy()[0])[:,:,0]
+		img_2 = gazemap_to_heatmap(create_gazemap(gazemap, out)[0])
+
+		writer.add_image('prediction', img_1, i*1+j, dataformats='HWC')
+		writer.add_image('ground_truth', img_2, i*1+j, dataformats='HWC')
 
 writer.flush()
 writer.close()
