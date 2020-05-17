@@ -13,13 +13,15 @@ from utils import *
 from data_utils import gazemap_to_heatmap, create_gazemap
 
 # batch size 1 for evaluation
-config = {'game':'alien', 'batch_size':1, 'mode':'overfit'}
+config = {'game':'alien', 'batch_size':1, 'mode':'overfit', 'task':'gazepred'}
 
+model = GazePred()
 train_loader, size = get_loader(config)
-model = init_model(train_loader)
+model = init_model(model, train_loader)
 writer = create_summary_writer(config, model, train_loader)
 
-cp_path = 'checkpoint/trial.pth'
+# cp_path = 'checkpoint/trial.pth'
+cp_path = 'checkpoint/checkpoint_model_800.pth'
 model.load_state_dict(torch.load(cp_path))
 model.eval()
 
@@ -39,11 +41,14 @@ for i, batch in enumerate(train_loader):
 		# continue
 	if i > size: # need to include this for an interative dataloader
 		break
-	item, outputs = depickle(batch)
+	item, outputs = depickle(batch, config)
 	preds = model(item)
-	h, w = 210, 160
-	outputs = list(outputs.detach().numpy()*[[h,w]]+[[h//2,w//2]])
-	preds = list(preds.detach().numpy()*[[h,w]]+[[h//2,w//2]])
+	h, w = item.size(1), item.size(2)
+
+	assert config['task'] == 'gazepred'
+	
+	outputs = list(denormalize(outputs, xlim=w, ylim=h).detach().numpy())
+	preds = list(denormalize(preds, xlim=w, ylim=h).detach().numpy())
 
 	for j, out in enumerate(outputs):
 		gazemap = np.zeros_like(item.detach().numpy()[0])[:,:,0]

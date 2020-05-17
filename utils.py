@@ -9,16 +9,25 @@ from torch.utils.tensorboard import SummaryWriter
 from model import *
 from dataloader import *
 
-def depickle(batch):
+def normalize(data, xlim, ylim):
+    return (data - torch.Tensor([[xlim/2,ylim/2]]))/torch.Tensor([xlim,ylim])
+
+def denormalize(data, xlim, ylim):
+    return (data * torch.Tensor([[xlim,ylim]]))+torch.Tensor([xlim/2,ylim/2])
+
+def depickle(batch, config):
     frames = torch.cat(list(map(lambda x: torch.load(x)['frame_stack'], batch)),0)
-    outputs = torch.cat(list(map(lambda x: torch.load(x)['gaze_point'], batch)),0)
-    h,w = 210,160
-    outputs = (outputs - torch.Tensor([h/2,w/2])[None,:])/torch.Tensor([h,w])[None,:]
+    gaze_data = torch.cat(list(map(lambda x: torch.load(x)['gaze_point'], batch)),0)
+    actions = torch.cat(list(map(lambda x: torch.load(x)['action'], batch)),0)
+    h,w = frames.size(1), frames.size(2)
+    gaze_data = normalize(gaze_data, xlim=w, ylim=h)
 
-    return frames, outputs
+    if config['task'] == 'gazepred':
+        return frames, gaze_data
+    else:
+        return frames, actions
 
-def init_model(train_loader):
-    model = GazePred()
+def init_model(model, train_loader):
     batch_ = next(iter(train_loader)) 
     frames_ = torch.cat(list(map(lambda x: torch.load(x)['frame_stack'], batch_)),0)
     _ = model(frames_)
@@ -29,7 +38,7 @@ def create_summary_writer(config, model, data_loader):
 
     writer = SummaryWriter(log_dir=log_dir)
 
-    x, y = depickle(next(iter(data_loader)))
+    x, y = depickle(next(iter(data_loader)), config)
 
     try:
         writer.add_graph(model, x)

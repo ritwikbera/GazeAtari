@@ -14,19 +14,25 @@ from ignite.handlers import ModelCheckpoint
 
 from tqdm import tqdm
 from model import *
-from dataloader import *
 from utils import *
 
 torch.manual_seed(0)
 np.random.seed(0)
 
 def run(config):
-    loss_fn = nn.MSELoss()
+    loss_fn = None
+    model = None
+
+    if config['task'] == 'gazepred':
+        model = GazePred()
+        loss_fn = nn.MSELoss()
+
+    assert (not model == None) and (not loss_fn == None)
 
     train_loader, size = get_loader(config)
-    model = init_model(train_loader)
+    model = init_model(model, train_loader)
     writer = create_summary_writer(config, model, train_loader)
-
+    
 
     model, device = ModelPrepper(model, config).out
     if config['optimizer']=='Adam':
@@ -41,30 +47,20 @@ def run(config):
     pbar = tqdm(initial=0, leave=False, total=size, desc=desc.format(0))
 
     def process_batch(engine, batch):
-        frames, outputs = depickle(batch)
+        inputs, outputs = depickle(batch, config)
 
         if config['mode'] in ['train','overfit']:
             model.train()
-            preds = model(frames)
-            optimizer.zero_grad()
-            loss = loss_fn(outputs.to(device), preds)*100
-            loss.backward()
-            optimizer.step()
-            # print(model.gcu.W.grad)
-            # print(model.gcu.weight.grad)
-            # print(model.gcu.variance.grad)
-        elif config['mode'] == 'eval':
-            model.eval()
-            preds = model(frames)
-            loss = loss_fn(outputs.to(device), preds)*100
         else:
-            raise NotImplementedError
+            model.eval()
 
-        # print(frames.size(), outputs.size())
-        # print(pred.size())
+        preds = model(inputs)
+        loss = loss_fn(outputs.to(device), preds)*100
 
-        # print(preds, outputs)
-        # print(loss.item())
+        if config['mode'] in ['train','overfit']:
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step() 
 
         return loss.item()
 

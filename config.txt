@@ -1,4 +1,5 @@
 {"game":"alien", 
+"task" : "gazepred",
 "batch_size":4, 
 "epochs":40, 
 "lr":5e-3, 
