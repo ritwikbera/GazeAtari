@@ -6,23 +6,26 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
 from PIL import Image 
 import numpy as np 
+import json
 
-from dataloader import *
-from model import *
+import models
+import utils
+from models import *
 from utils import *
-from data_utils import gazemap_to_heatmap, create_gazemap
 
-# batch size 1 for evaluation
-config = {'game':'alien', 'batch_size':1, 'mode':'overfit', 'task':'gazepred'}
+config = json.load(open('eval.json'))
 
-model = GazePred()
-train_loader, size = get_loader(config)
+train_loader = get_instance(utils, 'dataloader', config)
+model = get_instance(models, 'arch', config)
+
 model = init_model(model, train_loader)
-writer = create_summary_writer(config, model, train_loader)
 
-# cp_path = 'checkpoint/trial.pth'
-cp_path = 'checkpoint/checkpoint_model_800.pth'
-model.load_state_dict(torch.load(cp_path))
+writer = create_summary_writer(config, model, train_loader)
+batch_size = config['dataloader']['args']['batch_size']
+
+if config['mode'] == 'eval' or config['resume'] == 1:
+    model.load_state_dict(torch.load(config['ckpt_path']))
+
 model.eval()
 
 def print_param(model):
@@ -32,14 +35,14 @@ def print_param(model):
 			writer.add_histogram(param[0], param[1].detach().squeeze().numpy(), bins='auto')
 # print(list(model.parameters()))
 
-print_param(model)
+# print_param(model)
 
 
 
 for i, batch in enumerate(train_loader):
 	# if i%1000 > 0:
 		# continue
-	if i > size: # need to include this for an interative dataloader
+	if i > len(train_loader): # need to include this for an interative dataloader
 		break
 	item, outputs = depickle(batch, config)
 	preds = model(item)

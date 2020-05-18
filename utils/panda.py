@@ -9,7 +9,7 @@ import math
 from scipy.ndimage import gaussian_filter
 import scipy.misc as sm 
 import torch
-from data_utils import *
+from .data_utils import *
 
 
 def prep_data(game='alien', num_trials=1, sampling_interval=5, num_actions=18):
@@ -26,10 +26,12 @@ def prep_data(game='alien', num_trials=1, sampling_interval=5, num_actions=18):
 		out_folder = 'dataset/'+game+'/gaze/'+filename.split('/')[-1][:-4] # heatmap only
 		viz_folder = 'dataset/'+game+'/viz/'+filename.split('/')[-1][:-4]  # full visualiztion
 		data_folder = 'dataset/'+game+'/data/'+filename.split('/')[-1][:-4] # pickled data
-
-		shutil.rmtree(out_folder)
-		shutil.rmtree(viz_folder)
-		shutil.rmtree(data_folder)
+		try:
+			shutil.rmtree(out_folder)
+			shutil.rmtree(viz_folder)
+			shutil.rmtree(data_folder)
+		except:
+			pass
 		os.makedirs(out_folder)
 		os.makedirs(viz_folder)
 		os.makedirs(data_folder)

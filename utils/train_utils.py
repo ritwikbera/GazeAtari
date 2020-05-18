@@ -6,8 +6,6 @@ import datetime
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from model import *
-from dataloader import *
 
 def normalize(data, xlim, ylim):
     return (data - torch.Tensor([[xlim/2,ylim/2]]))/torch.Tensor([xlim,ylim])
@@ -28,15 +26,13 @@ def depickle(batch, config):
         return frames, actions
 
 def init_model(model, train_loader):
-    batch_ = next(iter(train_loader)) 
+    batch_ = next(iter(train_loader))
     frames_ = torch.cat(list(map(lambda x: torch.load(x)['frame_stack'], batch_)),0)
     _ = model(frames_)
     return model
 
 def create_summary_writer(config, model, data_loader):
-    log_dir = 'dataset/'+config['game']+'/logs/'
-
-    writer = SummaryWriter(log_dir=log_dir)
+    writer = SummaryWriter(log_dir=config['log_dir'])
 
     x, y = depickle(next(iter(data_loader)), config)
 
@@ -46,24 +42,6 @@ def create_summary_writer(config, model, data_loader):
         print("Failed to save model graph: {}".format(e))
     return writer
 
-def get_loader(config):
-    path = 'dataset/'+config['game']+'/data/*'
-    
-    # if overfitting on a batch
-    if config['mode'] == 'overfit':
-        path = 'dataset/'+config['game']+'/overfit/*'
-
-    if config['mode'] == 'eval':
-        config['batch_size'] = 1
-
-    data_list = [glob(trial+'/*.pth') for trial in glob(path)[:]]
-    size = recursive_len(data_list)
-    print('Dataset Size {}'.format(size))
-    
-    datasets = MyIterableDataset.split_datasets(data_list, batch_size=config['batch_size'], max_workers=1)
-    train_loader = MultiStreamDataLoader(datasets)
-
-    return train_loader, size
 
 def recursive_len(item):
     if type(item) == list:

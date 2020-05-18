@@ -1,5 +1,5 @@
 import torch.nn as nn
-from graphLayer import GCU
+from .graphLayer import GCU
 import torch
 
 

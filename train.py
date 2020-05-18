@@ -13,38 +13,36 @@ from ignite.utils import setup_logger
 from ignite.handlers import ModelCheckpoint
 
 from tqdm import tqdm
-from model import *
+
+import models
+import utils
+from models import *
 from utils import *
+
 
 torch.manual_seed(0)
 np.random.seed(0)
 
 def run(config):
-    loss_fn = None
-    model = None
+    train_loader = get_instance(utils, 'dataloader', config)
+    model = get_instance(models, 'arch', config)
 
-    if config['task'] == 'gazepred':
-        model = GazePred()
-        loss_fn = nn.MSELoss()
-
-    assert (not model == None) and (not loss_fn == None)
-
-    train_loader, size = get_loader(config)
     model = init_model(model, train_loader)
-    writer = create_summary_writer(config, model, train_loader)
-    
-
     model, device = ModelPrepper(model, config).out
-    if config['optimizer']=='Adam':
-        optimizer = Adam(model.parameters(), lr=config['lr'])
-    else:
-        optimizer = Rprop(model.parameters())
+
+    loss_fn = getattr(nn,config['loss_fn']['type'])()
+
+    trainable_params = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = get_instance(torch.optim, 'optimizer', config, trainable_params)
+
+    writer = create_summary_writer(config, model, train_loader)
+    batch_size = config['dataloader']['args']['batch_size']
 
     if config['mode'] == 'eval' or config['resume'] == 1:
         model.load_state_dict(torch.load(config['ckpt_path']))
 
     desc = "ITERATION - loss: {:.2f}"
-    pbar = tqdm(initial=0, leave=False, total=size, desc=desc.format(0))
+    pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
 
     def process_batch(engine, batch):
         inputs, outputs = depickle(batch, config)
@@ -69,7 +67,7 @@ def run(config):
 
     if config['mode'] in ['train','overfit']:
         RunningAverage(output_transform=lambda x: x).attach(trainer, 'loss')
-        training_saver = ModelCheckpoint("checkpoint",
+        training_saver = ModelCheckpoint(config['checkpoint_dir'],
                                      filename_prefix="checkpoint",
                                      n_saved=1,
                                      atomic=True,
@@ -82,7 +80,7 @@ def run(config):
     @trainer.on(Events.ITERATION_COMPLETED)
     def tb_log(engine):
         pbar.desc = desc.format(engine.state.output)
-        pbar.update(config['batch_size'])
+        pbar.update(batch_size)
 
         if config['mode'] in ['train','overfit']:
             writer.add_scalar('training/avg_loss', engine.state.metrics['loss'] ,engine.state.iteration)
@@ -96,9 +94,9 @@ def run(config):
         tqdm.write('Trainer Results - Epoch {} - Avg loss: {:.2f}'.format(engine.state.epoch, avg_loss))
         pbar.n = pbar.last_print_n = 0
 
-    trainer.run(train_loader, max_epochs=config['epochs'], epoch_length=size/config['batch_size'])
+    trainer.run(train_loader, max_epochs=config['epochs'], epoch_length=len(train_loader)/batch_size)
     pbar.close()
     
 if __name__ == "__main__":
-    config = json.load(open('config.txt'))
+    config = json.load(open('config.json'))
     run(config)

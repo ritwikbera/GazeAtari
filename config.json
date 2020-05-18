@@ -1,0 +1,37 @@
+{
+	"game":"alien", 
+	"mode":"overfit",
+	"task":"gazepred",
+	"arch":{
+		"type":"GazePred",
+		"args":{
+			"V":8
+		}
+	},
+	"loss_fn":{
+		"type":"MSELoss",
+		"args":{
+			"reduction":"mean"
+		}
+	},
+	"epochs":40, 
+	"optimizer":{
+		"type":"Adam",
+		"args":{
+			"lr":5e-3
+		}
+	},
+	"dataloader":{
+		"type": "AtariMSDL",
+		"args":{
+			"path":"/home/deathstar/work/GazeGuidedImitation/dataset/alien/overfit/",
+			"batch_size":4
+		}
+	},
+	"log_dir":"/home/deathstar/work/GazeGuidedImitation/experiments/logs/",
+	"checkpoint_dir":"/home/deathstar/work/GazeGuidedImitation/experiments/checkpoint/",
+	"log_interval":100, 
+	"n_gpu":2,   
+	"resume":0,
+	"ckpt_path":"trial1.pth"
+}

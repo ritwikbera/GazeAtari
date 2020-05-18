@@ -2,3 +2,8 @@ dataset/
 bin.py
 mol.py
 *.pth
+*.0
+**/__pycache__/
+*.pyc
+*.pyo
+experiments/**/*
