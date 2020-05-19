@@ -5,7 +5,9 @@
 	"arch":{
 		"type":"GazePred",
 		"args":{
-			"V":8
+			"V":8,
+			"outfeatures":12,
+			"env":"atari"
 		}
 	},
 	"loss_fn":{
@@ -24,14 +26,14 @@
 	"dataloader":{
 		"type": "AtariMSDL",
 		"args":{
-			"path":"/home/deathstar/work/GazeGuidedImitation/dataset/alien/overfit/",
+			"path":"dataset/alien/overfit/",
 			"batch_size":4
 		}
 	},
-	"log_dir":"/home/deathstar/work/GazeGuidedImitation/experiments/logs/",
-	"checkpoint_dir":"/home/deathstar/work/GazeGuidedImitation/experiments/checkpoint/",
+	"log_dir":"experiments/logs/",
+	"checkpoint_dir":"experiments/checkpoint/",
 	"log_interval":100, 
 	"n_gpu":2,   
 	"resume":0,
-	"ckpt_path":"trial1.pth"
+	"ckpt_path":"experiments/checkpoint/trial1.pth"
 }

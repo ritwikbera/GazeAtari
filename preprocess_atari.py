@@ -9,23 +9,24 @@ import math
 from scipy.ndimage import gaussian_filter
 import scipy.misc as sm 
 import torch
-from .data_utils import *
+from utils import *
 
 
-def prep_data(game='alien', num_trials=1, sampling_interval=5, num_actions=18):
+def prepAtariData(game='alien', num_trials=1, sampling_interval=5, num_actions=18):
 	'''
 	game = 'alien'
 	episode = 0 # trial
 	sampling_interval = 5 # every 5th frame sampled (with stacked history)
 	'''
-	files = glob.glob('dataset/'+game+'/*.txt')
+	path = os.getcwd()+'/dataset/'+game
+	files = glob.glob(path+'/*.txt')
 	for episode in range(num_trials):
 		filename = files[episode]
 
-		img_folder = 'dataset/'+game+'/extracted/'+filename.split('/')[-1][:-4] # raw frames
-		out_folder = 'dataset/'+game+'/gaze/'+filename.split('/')[-1][:-4] # heatmap only
-		viz_folder = 'dataset/'+game+'/viz/'+filename.split('/')[-1][:-4]  # full visualiztion
-		data_folder = 'dataset/'+game+'/data/'+filename.split('/')[-1][:-4] # pickled data
+		img_folder = path+'/extracted/'+filename.split('/')[-1][:-4] # raw frames
+		out_folder = path+'/gaze/'+filename.split('/')[-1][:-4] # heatmap only
+		viz_folder = path+'/viz/'+filename.split('/')[-1][:-4]  # full visualiztion
+		data_folder = path'/data/'+filename.split('/')[-1][:-4] # pickled data
 		try:
 			shutil.rmtree(out_folder)
 			shutil.rmtree(viz_folder)
@@ -110,4 +111,4 @@ def prep_data(game='alien', num_trials=1, sampling_interval=5, num_actions=18):
 		# plt.show()
 
 if __name__=='__main__':
-	prep_data()
+	prepAtariData()

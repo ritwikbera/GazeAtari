@@ -5,6 +5,7 @@ from torch.utils.data import IterableDataset, Dataset, DataLoader
 import random
 import time
 from itertools import islice, chain, cycle
+from functools import reduce
 from glob import glob 
 
 class MyIterableDataset(IterableDataset):
@@ -54,11 +55,21 @@ class MultiStreamDataLoader:
         self.datasets = datasets
     
     def get_stream_loaders(self):
-        return zip(*[DataLoader(dataset, num_workers=1, batch_size=None) for dataset in self.datasets])
+        return zip(*[DataLoader(dataset, num_workers=1, batch_size=None, collate_fn=atariCollate) \
+            for dataset in self.datasets])
 
     def __iter__(self):
         for batch_parts in self.get_stream_loaders():
-            yield list(chain(*batch_parts))
+            yield reduce(lambda a,b: [torch.cat((a[i],b[i]),0) for i in range(len(a))],batch_parts)
+
+def atariCollate(batch): 
+    data = ['frame_stack','gaze_point','action']
+    out = [torch.cat(list(map(lambda x: torch.load(x)[key], batch)),0) for key in data]
+
+    h,w = out[0].size(1), out[0].size(2)
+    out[1] = normalize(out[1], xlim=w, ylim=h)
+
+    return out
 
 class AtariMSDL:
     def __init__(self, path, batch_size):
@@ -66,7 +77,7 @@ class AtariMSDL:
         self.size = recursive_len(data_list)
         print('Dataset Size {}'.format(self.size))
     
-        datasets = MyIterableDataset.split_datasets(data_list, batch_size=batch_size, max_workers=1)
+        datasets = MyIterableDataset.split_datasets(data_list, batch_size=batch_size, max_workers=4)
         self.train_loader = MultiStreamDataLoader(datasets)
     
     def __len__(self):
@@ -76,17 +87,5 @@ class AtariMSDL:
         for batch in iter(self.train_loader):
             yield batch
 
-
-if __name__=='__main__':
-    random.seed(10)
-    data_list = [[12, 13, 14, 15, 16, 17], \
-                 [27, 28, 29], \
-                 [31, 32, 33, 34, 35, 36, 37, 38, 39], \
-                 [40, 41, 42, 43]]
-
-    a = map(lambda x: x**2, cycle(chain(*random.sample(data_list, len(data_list)))))
-    print(next(a))
-    print(next(a))
-    print(next(a))
 
     

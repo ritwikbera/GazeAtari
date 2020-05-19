@@ -1,3 +1,2 @@
-from .model import *
-from .ale_policy import *
-from .graphLayer import *
+from .gaze_model import *
+from .policy import *

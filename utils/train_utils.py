@@ -13,28 +13,17 @@ def normalize(data, xlim, ylim):
 def denormalize(data, xlim, ylim):
     return (data * torch.Tensor([[xlim,ylim]]))+torch.Tensor([xlim/2,ylim/2])
 
-def depickle(batch, config):
-    frames = torch.cat(list(map(lambda x: torch.load(x)['frame_stack'], batch)),0)
-    gaze_data = torch.cat(list(map(lambda x: torch.load(x)['gaze_point'], batch)),0)
-    actions = torch.cat(list(map(lambda x: torch.load(x)['action'], batch)),0)
-    h,w = frames.size(1), frames.size(2)
-    gaze_data = normalize(gaze_data, xlim=w, ylim=h)
-
-    if config['task'] == 'gazepred':
-        return frames, gaze_data
-    else:
-        return frames, actions
+func = lambda batch: (batch[0], batch[1] if json.load(open('config.json'))['task']=='gazepred' else batch[2])
 
 def init_model(model, train_loader):
-    batch_ = next(iter(train_loader))
-    frames_ = torch.cat(list(map(lambda x: torch.load(x)['frame_stack'], batch_)),0)
-    _ = model(frames_)
+    inputs, outputs = func(next(iter(train_loader)))
+    _ = model(inputs)
     return model
 
 def create_summary_writer(config, model, data_loader):
     writer = SummaryWriter(log_dir=config['log_dir'])
 
-    x, y = depickle(next(iter(data_loader)), config)
+    x, y = func(next(iter(data_loader)))
 
     try:
         writer.add_graph(model, x)

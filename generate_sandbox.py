@@ -4,11 +4,12 @@ from random import sample
 from shutil import copyfile
 import shutil
 
-def gen_sandbox(num_samples_per_trial = 80, game = 'alien'):
-	path = 'dataset/'+game+'/data/*'
-	gaze_data = [(trial, sample(glob(trial+'/*.pth'), num_samples_per_trial)) for trial in glob(path)]
+def gen_sandbox(num_samples_per_trial=80, game='alien', dataset_path='dataset/'):
+	dataset_path = os.getcwd()+'/'+dataset_path+'/'+game
+	path = dataset_path+'/data/'
+	gaze_data = [(trial, sample(glob(trial+'/*.pth'), num_samples_per_trial)) for trial in glob(path+'/*')]
 
-	sandbox_path = 'dataset/'+game+'/overfit/'
+	sandbox_path = dataset_path+'/overfit/'
 
 	try:
 	    shutil.rmtree(sandbox_path)

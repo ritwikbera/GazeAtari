@@ -190,7 +190,7 @@ class GCU(Module):
 
         # Z_o.register_hook(self.save_grad('Z_o'))
 
-        out = self.GraphReproject(Z_o, Q).permute(0,3,1,2) # permute channel dimension
+        out = self.GraphReproject(Z_o, Q)
 
         return out
 

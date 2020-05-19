@@ -6,6 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 import json 
+import os
 
 from ignite.engine import Events, Engine
 from ignite.metrics import Loss, RunningAverage
@@ -19,7 +20,7 @@ import utils
 from models import *
 from utils import *
 
-
+current_dir = os.getcwd()
 torch.manual_seed(0)
 np.random.seed(0)
 
@@ -45,7 +46,7 @@ def run(config):
     pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
 
     def process_batch(engine, batch):
-        inputs, outputs = depickle(batch, config)
+        inputs, outputs = func(batch)
 
         if config['mode'] in ['train','overfit']:
             model.train()
@@ -68,7 +69,7 @@ def run(config):
     if config['mode'] in ['train','overfit']:
         RunningAverage(output_transform=lambda x: x).attach(trainer, 'loss')
         training_saver = ModelCheckpoint(config['checkpoint_dir'],
-                                     filename_prefix="checkpoint",
+                                     filename_prefix='checkpoint_'+config['task'],
                                      n_saved=1,
                                      atomic=True,
                                      save_as_state_dict=True,

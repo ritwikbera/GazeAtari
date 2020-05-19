@@ -1,7 +1,7 @@
 import json
 
 def build_commands():
-    filename = '/home/deathstar/work/GazeGuidedImitation/dataset/action_enums.txt'
+    filename = '~/work/GazeGuidedImitation/dataset/action_enums.txt'
 
     commands = {}
     with open(filename) as fh:

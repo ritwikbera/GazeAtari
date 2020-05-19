@@ -4,7 +4,7 @@ import zipfile
 import tarfile
 
 def unzip(dir_path = 'dataset/alien'):
-
+    dir_path = os.getcwd()+'/'+dir_path
     for path, dir_list, file_list in os.walk(dir_path):
         print(path)
         print(file_list)
