@@ -26,7 +26,7 @@ def prepAtariData(game='alien', num_trials=1, sampling_interval=5, num_actions=1
 		img_folder = path+'/extracted/'+filename.split('/')[-1][:-4] # raw frames
 		out_folder = path+'/gaze/'+filename.split('/')[-1][:-4] # heatmap only
 		viz_folder = path+'/viz/'+filename.split('/')[-1][:-4]  # full visualiztion
-		data_folder = path'/data/'+filename.split('/')[-1][:-4] # pickled data
+		data_folder = path+'/data/'+filename.split('/')[-1][:-4] # pickled data
 		try:
 			shutil.rmtree(out_folder)
 			shutil.rmtree(viz_folder)

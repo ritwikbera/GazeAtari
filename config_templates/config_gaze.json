@@ -1,12 +1,17 @@
 {
 	"game":"alien", 
 	"mode":"overfit",
-	"task":"actionpred",
+	"task":"gazepred",
 	"arch":{
-		"type":"AtariPolicyFull"
+		"type":"GazePred",
+		"args":{
+			"V":8,
+			"outfeatures":12,
+			"env":"atari"
+		}
 	},
 	"loss_fn":{
-		"type":"CrossEntropyLoss",
+		"type":"MSELoss",
 		"args":{
 			"reduction":"mean"
 		}

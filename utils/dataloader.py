@@ -68,6 +68,7 @@ def atariCollate(batch):
 
     h,w = out[0].size(1), out[0].size(2)
     out[1] = normalize(out[1], xlim=w, ylim=h)
+    out[2] = torch.max(out[2], 1)[1]
 
     return out
 

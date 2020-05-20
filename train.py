@@ -31,7 +31,7 @@ def run(config):
     model = init_model(model, train_loader)
     model, device = ModelPrepper(model, config).out
 
-    loss_fn = getattr(nn,config['loss_fn']['type'])()
+    loss_fn = get_instance(nn, 'loss_fn', config)
 
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = get_instance(torch.optim, 'optimizer', config, trainable_params)
@@ -54,13 +54,19 @@ def run(config):
             model.eval()
 
         preds = model(inputs)
-        loss = loss_fn(outputs.to(device), preds)*100
-
+        loss = loss_fn(preds, outputs.to(device))*100
+        
+        a = list(model.parameters())[0].clone()
+        
         if config['mode'] in ['train','overfit']:
             optimizer.zero_grad()
             loss.backward()
             optimizer.step() 
-
+        
+        # check if training is happening
+        b = list(model.parameters())[0].clone()
+        assert not torch.allclose(a.data, b.data), 'Model not updating anymore'
+    
         return loss.item()
 
     trainer = Engine(process_batch)

@@ -3,7 +3,13 @@
 	"mode":"overfit",
 	"task":"actionpred",
 	"arch":{
-		"type":"AtariPolicyFull"
+		"type":"AtariPolicyFull",
+		"args":{
+			"gaze_model_path":"experiments/checkpoint/gazemodel.pth",
+			"V":8,
+			"outfeatures":12,
+			"env":"atari"
+		}
 	},
 	"loss_fn":{
 		"type":"CrossEntropyLoss",

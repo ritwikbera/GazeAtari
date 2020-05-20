@@ -38,7 +38,7 @@ def get_gaussian_kernel(kernel_size=7, sigma=2, channels=1):
     return gaussian_filter
 
 if __name__=='__main__':
-    gaze = torch.zeros(1,1,64,64)
+    gaze = torch.zeros(1,1,210,160)
     gaze[0,0,23,33] = 1
     print(get_gaussian_kernel().weight.data)
     print(get_gaussian_kernel()(gaze).size())
