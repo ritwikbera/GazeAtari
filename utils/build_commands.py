@@ -1,7 +1,6 @@
 import json
 
-def build_commands():
-    filename = '~/work/GazeGuidedImitation/dataset/action_enums.txt'
+def build_commands(filename='dataset/action_enums.txt'):
 
     commands = {}
     with open(filename) as fh:
@@ -13,8 +12,9 @@ def build_commands():
             commands[command.strip()] = description.strip()
             # print(commands)
 
-    commands = {v: k for k, v in commands.items()}
-    print(json.dumps(commands, indent=2, sort_keys=True))
+    commands = {int(v): k for k, v in commands.items()}
+    return commands 
+    # return json.dumps(commands, indent=2, sort_keys=True)
 
 if __name__=='__main__':
-    build_commands()
+    print(build_commands(filename='/home/deathstar/work/GazeGuidedImitation/dataset/action_enums.txt'))
