@@ -1,4 +1,5 @@
-dataset/
+dataset/*
+!dataset/getdata.sh
 bin.py
 mol.py
 *.pth

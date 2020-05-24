@@ -3,7 +3,10 @@
 	"mode":"overfit",
 	"task":"actionpred",
 	"arch":{
-		"type":"AtariPolicyFull"
+		"type":"AtariPolicyFull",
+		"args":{
+			"use_gaze":true
+		}
 	},
 	"loss_fn":{
 		"type":"CrossEntropyLoss",

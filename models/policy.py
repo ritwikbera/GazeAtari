@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class AtariPolicy(nn.Module):
-    def __init__(self):
+    def __init__(self, use_gaze=True):
         super(AtariPolicy,self).__init__()
         self.conv1_1 = nn.Conv2d(3,32,(8,8),stride=4,padding=0)
         self.conv2_1 = nn.Conv2d(32,64,(4,4),stride=2,padding=0)
@@ -21,13 +21,18 @@ class AtariPolicy(nn.Module):
         self.conv_fc = None
 
         self.conv_scores = nn.Conv2d(64,18,(1,1))
+        self.use_gaze = use_gaze
 
     def forward(self, X):
         x, y = X
-        y = torch.mul(x,y)
-        x = self.conv3_1(self.conv2_1(self.conv1_1(x)))
-        y = self.conv3_2(self.conv2_2(self.conv1_2(y)))
-        z = (x+y)/2.0
+
+        if self.use_gaze:
+            y = torch.mul(x,y)
+            x = self.conv3_1(self.conv2_1(self.conv1_1(x)))
+            y = self.conv3_2(self.conv2_2(self.conv1_2(y)))
+            z = (x+y)/2.0
+        else:
+            z = x
 
         if not self.conv_fc:
             self.conv_fc = convFC(y.size())
@@ -37,9 +42,9 @@ class AtariPolicy(nn.Module):
         return z
 
 class AtariPolicyFull(nn.Module):
-    def __init__(self, gaze_model_path=None, V=8, outfeatures=12, env='atari'):
+    def __init__(self, gaze_model_path=None, V=8, outfeatures=12, env='atari', use_gaze=True):
         super(AtariPolicyFull,self).__init__()
-        self.policynet = AtariPolicy()
+        self.policynet = AtariPolicy(use_gaze)
         self.gazenet = GazePred(V=V, outfeatures=outfeatures, env=env)
         self.gaze_model_path = gaze_model_path
         self.gaze_model_loaded = False
