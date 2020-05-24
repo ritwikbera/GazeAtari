@@ -9,9 +9,10 @@ from functools import reduce
 from glob import glob 
 
 class MyIterableDataset(IterableDataset):
-    def __init__(self, data_list, batch_size):        
+    def __init__(self, data_list, batch_size, sequential_data=True):        
         self.data_list = data_list        
         self.batch_size = batch_size    
+        self.sequential_data = sequential_data
 
     # shuffling not possible by DataLoader in streaming dataloaders.
     @property
@@ -30,9 +31,11 @@ class MyIterableDataset(IterableDataset):
     def process_data_(self, data):
         return data
 
-    def get_stream(self, data_list):  
-        # return chain.from_iterable(map(self.process_data, cycle(data_list))) # if recurrence order has to be maintained
-        return map(self.process_data_, cycle(random.sample(list(chain(*data_list)), sum(len(x) for x in data_list))))
+    def get_stream(self, data_list): 
+        if self.sequential_data: 
+            return chain.from_iterable(map(self.process_data, cycle(data_list))) # if recurrence order has to be maintained
+        else:
+            return map(self.process_data_, cycle(random.sample(list(chain(*data_list)), sum(len(x) for x in data_list))))
 
     # randomization happens every time shuffle_data_list is called
     def get_streams(self):
@@ -73,8 +76,15 @@ def atariCollate(batch):
     return out
 
 class AtariMSDL:
-    def __init__(self, path, batch_size):
-        data_list = [glob(trial+'/*.pth') for trial in glob(path+'/*')[:]]
+    def __init__(self, mode, path, batch_size, train_size):
+
+        def file_set(trial):
+            files = glob(trial+'/*.pth')
+            split = int(train_size*len(files)/100)
+            return files[:split] if mode == 'train' else files[split:]
+
+        data_list = [file_set(trial) for trial in glob(path+'/*')[:]]
+        
         self.size = recursive_len(data_list)
         print('Dataset Size {}'.format(self.size))
     
@@ -87,6 +97,3 @@ class AtariMSDL:
     def __iter__(self):
         for batch in iter(self.train_loader):
             yield batch
-
-
-    

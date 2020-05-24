@@ -1,15 +1,17 @@
 {
 	"game":"alien", 
-	"mode":"overfit",
-	"task":"actionpred",
+	"mode":"eval",
+	"task":"gazepred",
 	"arch":{
-		"type":"AtariPolicyFull",
+		"type":"GazePred",
 		"args":{
-			"use_gaze":true
+			"V":8,
+			"outfeatures":12,
+			"env":"atari"
 		}
 	},
 	"loss_fn":{
-		"type":"CrossEntropyLoss",
+		"type":"MSELoss",
 		"args":{
 			"reduction":"mean"
 		}
@@ -25,13 +27,14 @@
 		"type": "AtariMSDL",
 		"args":{
 			"path":"dataset/alien/overfit/",
-			"batch_size":4
+			"batch_size":4,
+			"train_size":80
 		}
 	},
 	"log_dir":"experiments/logs/",
 	"checkpoint_dir":"experiments/checkpoint/",
 	"log_interval":100, 
 	"n_gpu":2,   
-	"resume":0,
-	"ckpt_path":"experiments/checkpoint/actionmodel.pth"
+	"resume":false,
+	"ckpt_path":"experiments/checkpoint/gazemodel.pth"
 }
