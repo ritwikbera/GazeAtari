@@ -8,10 +8,14 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 def normalize(data, xlim, ylim):
-    return (data - torch.Tensor([[xlim/2,ylim/2]]))/torch.Tensor([xlim,ylim])
+    mean = torch.Tensor([xlim/2,ylim/2]).to(data.device)
+    std = torch.Tensor([xlim,ylim]).to(data.device)
+    return (data - mean)/std
 
 def denormalize(data, xlim, ylim):
-    return (data * torch.Tensor([[xlim,ylim]]))+torch.Tensor([xlim/2,ylim/2])
+    mean = torch.Tensor([xlim/2,ylim/2]).to(data.device)
+    std = torch.Tensor([xlim,ylim]).to(data.device)
+    return (data * std) + mean
 
 func = lambda batch: (batch[0], batch[1] if json.load(open('config.json'))['task']=='gazepred' else batch[2])
 

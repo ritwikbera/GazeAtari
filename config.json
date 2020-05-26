@@ -1,6 +1,6 @@
 {
 	"game":"alien", 
-	"mode":"eval",
+	"mode":"train",
 	"task":"gazepred",
 	"arch":{
 		"type":"GazePred",
@@ -16,7 +16,7 @@
 			"reduction":"mean"
 		}
 	},
-	"epochs":40, 
+	"epochs":1, 
 	"optimizer":{
 		"type":"Adam",
 		"args":{
@@ -27,7 +27,7 @@
 		"type": "AtariMSDL",
 		"args":{
 			"path":"dataset/alien/overfit/",
-			"batch_size":4,
+			"batch_size":16,
 			"train_size":80
 		}
 	},

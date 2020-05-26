@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import json 
 import os
+from math import ceil
 
 from ignite.engine import Events, Engine
 from ignite.metrics import Loss, RunningAverage, Accuracy, MeanSquaredError
@@ -45,15 +46,17 @@ def run(config):
     if config['mode'] == 'eval' or config['resume']:
         model.load_state_dict(torch.load(config['ckpt_path']))
 
+    epoch_length = int(ceil(len(train_loader)/batch_size))
     desc = "ITERATION - loss: {:.2f}"
-    pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
+    pbar = tqdm(initial=0, leave=False, total=epoch_length, desc=desc.format(0))
 
     def process_batch(engine, batch):
         inputs, outputs = func(batch)
         model.train()
+        model.zero_grad()
         optimizer.zero_grad()
         preds = model(inputs)
-        loss = loss_fn(preds, outputs.to(device))*100
+        loss = loss_fn(preds, outputs.to(device))
         
         a = list(model.parameters())[0].clone()
         
@@ -62,8 +65,11 @@ def run(config):
         
         # check if training is happening
         b = list(model.parameters())[0].clone()
-        assert not torch.allclose(a.data, b.data), 'Model not updating anymore'
-    
+        try:
+            assert not torch.allclose(a.data, b.data), 'Model not updating anymore'
+        except AssertionError:
+            plot_grad_flow(model.named_parameters())
+
         return loss.item()
 
     def predict_on_batch(engine, batch):
@@ -72,7 +78,7 @@ def run(config):
         with torch.no_grad():
             y_pred = model(inputs)
 
-        return inputs, y_pred, outputs
+        return inputs, y_pred, outputs.to(device)
 
     trainer = Engine(process_batch)
     trainer.logger = setup_logger("trainer")
@@ -100,7 +106,7 @@ def run(config):
     @trainer.on(Events.ITERATION_COMPLETED)
     def tb_log(engine):
         pbar.desc = desc.format(engine.state.output)
-        pbar.update(batch_size)
+        pbar.update(1)
         writer.add_scalar('training/avg_loss', engine.state.metrics['loss'] ,engine.state.iteration)
 
     @trainer.on(Events.EPOCH_COMPLETED)
@@ -126,12 +132,12 @@ def run(config):
         visualize_outputs(writer=writer, state=engine.state, task=config['task'])
 
     if config['mode'] == 'train':
-        trainer.run(train_loader, max_epochs=config['epochs'], epoch_length=len(train_loader)/batch_size)
+        trainer.run(train_loader, max_epochs=config['epochs'], epoch_length=epoch_length)
     
     
     pbar.close()
     
-    evaluator.run(val_loader, max_epochs=1, epoch_length=len(val_loader)/batch_size)
+    evaluator.run(val_loader, max_epochs=1, epoch_length=int(ceil(len(val_loader)/batch_size)))
 
 
     writer.flush()

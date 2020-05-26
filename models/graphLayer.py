@@ -58,8 +58,7 @@ class GCU(Module):
     def save_grad(self, name):
         def hook(grad):
             self.grads[name] = grad
-            assert not (grad == torch.zeros(grad.size())).all()
-            # print(name, grad.size(), (grad == torch.zeros(grad.size())).all())
+            assert not (grad == grad.new_zeros(grad.size())).all()
         return hook
 
     def init_param(self,x):

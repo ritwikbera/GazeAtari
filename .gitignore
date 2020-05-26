@@ -7,4 +7,5 @@ mol.py
 **/__pycache__/
 *.pyc
 *.pyo
+*.png
 experiments/**/*
